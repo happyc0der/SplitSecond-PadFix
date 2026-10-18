@@ -1,0 +1,20 @@
+cmake_minimum_required(VERSION 3.25)
+project(SplitSecondPadFix LANGUAGES CXX)
+if(NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
+  message(FATAL_ERROR "Split/Second is a 32-bit game: configure with -A Win32")
+endif()
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+add_library(dinput8 SHARED src/dinput8_proxy.cpp src/common.cpp src/dinput8.def)
+target_link_libraries(dinput8 PRIVATE dxguid)
+target_compile_options(dinput8 PRIVATE /W3 /permissive- /utf-8)
+
+add_library(xinput1_3 SHARED src/xinput_proxy.cpp src/common.cpp src/xinput1_3.def)
+target_compile_options(xinput1_3 PRIVATE /W3 /permissive- /utf-8)
+
+# offline check: reads the pad through a proxy dinput8.dll the way the game does (not deployed)
+add_executable(padtest test/padtest.cpp)
+target_link_libraries(padtest PRIVATE dxguid dinput8.lib)
+target_compile_options(padtest PRIVATE /W3 /utf-8)

@@ -1,0 +1,13 @@
+LIBRARY xinput1_3
+EXPORTS
+    XInputGetState                  @2
+    XInputSetState                  @3
+    XInputGetCapabilities           @4
+    XInputEnable                    @5
+    XInputGetDSoundAudioDeviceGuids @6
+    XInputGetBatteryInformation     @7
+    XInputGetKeystroke              @8
+    XInputOrd100                    @100 NONAME
+    XInputOrd101                    @101 NONAME
+    XInputOrd102                    @102 NONAME
+    XInputOrd103                    @103 NONAME

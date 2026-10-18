@@ -1,0 +1,8 @@
+# build output
+/build/
+/build-*/
+.vs/
+*.user
+# local leftovers
+/old/
+padfix.log
