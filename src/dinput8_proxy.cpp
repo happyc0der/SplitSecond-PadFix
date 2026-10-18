@@ -59,6 +59,17 @@ void SpoofAs360(DIDEVICEINSTANCEA* d) {
 // ---------------------------------------------------------------------------------------------------------------
 // Translating device
 // ---------------------------------------------------------------------------------------------------------------
+// Live translating devices in creation order: the nth one reads the nth connected XInput pad (split-screen).
+class PadDevice;
+std::mutex g_padsLock;
+std::vector<PadDevice*> g_pads;
+int PadIndex(const PadDevice* d) {
+    std::lock_guard<std::mutex> lock(g_padsLock);
+    for (size_t i = 0; i < g_pads.size(); ++i)
+        if (g_pads[i] == d) return static_cast<int>(i);
+    return -1;
+}
+
 enum class Src { None, LX, LY, Trig, RX, RY, Zero, Pov, PovIdle, Button };
 struct Obj {
     DWORD ofs;
@@ -72,7 +83,11 @@ struct AxisProps {
 
 class PadDevice : public IDirectInputDevice8A {
 public:
-    PadDevice(IDirectInputDevice8A* real, const char* name) : real_(real), name_(name) {}
+    PadDevice(IDirectInputDevice8A* real, const char* name) : real_(real), name_(name) {
+        std::lock_guard<std::mutex> lock(g_padsLock);
+        g_pads.push_back(this);
+        name_ += " #" + std::to_string(g_pads.size());
+    }
 
     // IUnknown
     STDMETHOD(QueryInterface)(REFIID riid, void** out) override {
@@ -87,6 +102,10 @@ public:
     STDMETHOD_(ULONG, Release)() override {
         ULONG n = --refs_;
         if (n == 0) {
+            {
+                std::lock_guard<std::mutex> lock(g_padsLock);
+                g_pads.erase(std::remove(g_pads.begin(), g_pads.end(), this), g_pads.end());
+            }
             real_->Release();
             delete this;
         }
@@ -160,7 +179,7 @@ public:
         if (!g_cfg.translate) return real_->GetDeviceState(cb, data);
         if (!data || cb < dataSize_ || objs_.empty()) return real_->GetDeviceState(cb, data);
         std::lock_guard<std::mutex> lock(m_);
-        Fill(static_cast<uint8_t*>(data), cb, ReadPad());
+        Fill(static_cast<uint8_t*>(data), cb, Read());
         return DI_OK;
     }
     STDMETHOD(GetDeviceData)(DWORD cbObj, LPDIDEVICEOBJECTDATA rg, LPDWORD inOut, DWORD flags) override {
@@ -173,7 +192,7 @@ public:
         if (!inOut) return DIERR_INVALIDPARAM;
         if (bufferSize_ == 0) return DIERR_NOTBUFFERED;
         std::lock_guard<std::mutex> lock(m_);
-        Diff(ReadPad());
+        Diff(Read());
         DWORD want = *inOut, n = 0;
         if (!rg) { // count or flush
             n = static_cast<DWORD>(std::min<size_t>(want, events_.size()));
@@ -262,6 +281,17 @@ public:
     const std::string& Name() const { return name_; }
 
 private:
+    Pad Read() {
+        int slot = -1;
+        Pad p = ReadPad(PadIndex(this), &slot);
+        if (slot != slot_) {
+            slot_ = slot;
+            if (slot >= 0) Log("[di] %s reads XInput pad %d", name_.c_str(), slot + 1);
+            else Log("[di] %s has no XInput pad to read (not enough controllers connected)", name_.c_str());
+        }
+        return p;
+    }
+
     // property targets: device-wide or one object (by offset in the data format)
     std::vector<AxisProps*> Targets(DWORD obj, DWORD how) {
         std::vector<AxisProps*> out;
@@ -337,7 +367,7 @@ private:
             lastLogged_ = p;
             LONG x, y, z, pov;
             memcpy(&x, data + 0, 4); memcpy(&y, data + 4, 4); memcpy(&z, data + 8, 4); memcpy(&pov, data + 32, 4);
-            Log("[pad] buttons %04X LT %3u RT %3u L(%6d,%6d) R(%6d,%6d) -> game sees X %6ld Y %6ld Z %6ld POV %ld", p.buttons, p.lt, p.rt,
+            Log("[pad] %s: buttons %04X LT %3u RT %3u L(%6d,%6d) R(%6d,%6d) -> game sees X %6ld Y %6ld Z %6ld POV %ld", name_.c_str(), p.buttons, p.lt, p.rt,
                 p.lx, p.ly, p.rx, p.ry, x, y, z, pov);
         }
     }
@@ -371,6 +401,7 @@ private:
     bool overflow_ = false, loggedPad_ = false, loggedLost_ = false;
     Pad lastLogged_;
     int inputLogs_ = 0;
+    int slot_ = -2;
     int stateLogs_ = 0, dataLogs_ = 0, formatLogs_ = 0, acquireLogs_ = 0;
     std::atomic<long> stateCalls_{0};
 };
@@ -447,6 +478,7 @@ using Create_t = HRESULT(WINAPI*)(HINSTANCE, DWORD, REFIID, LPVOID*, LPUNKNOWN);
 
 extern "C" HRESULT WINAPI DirectInput8Create(HINSTANCE inst, DWORD ver, REFIID riid, LPVOID* out, LPUNKNOWN outer) {
     LoadConfigOnce();
+    StartNameWatcher();
     static Create_t real = [] {
         HMODULE h = LoadSystemDll(L"dinput8.dll");
         return h ? reinterpret_cast<Create_t>(GetProcAddress(h, "DirectInput8Create")) : nullptr;

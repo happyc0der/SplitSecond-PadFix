@@ -7,7 +7,7 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_library(dinput8 SHARED src/dinput8_proxy.cpp src/common.cpp src/dinput8.def)
+add_library(dinput8 SHARED src/dinput8_proxy.cpp src/names.cpp src/common.cpp src/dinput8.def)
 target_link_libraries(dinput8 PRIVATE dxguid)
 target_compile_options(dinput8 PRIVATE /W3 /permissive- /utf-8)
 
