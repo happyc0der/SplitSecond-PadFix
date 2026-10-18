@@ -12,9 +12,42 @@ look exactly like a wired Xbox 360 pad to the game, so it works wirelessly with 
 
 ## Status
 
-Version 1.0.0. Tested with an Xbox Elite Series 2 over Bluetooth LE on Windows 11, in menus and while driving, on the
-community DLC build of the game. The Steam release (1.0.0.1) has the same controller code (the same product table and
-checks described below), and PadFix doesn't patch the game at all, so it should behave the same there; reports welcome.
+Version 1.0.0, early. It has been tested on one setup only, so please read this before relying on it.
+
+**Tested:** Windows 11, an Xbox Elite Series 2 over Bluetooth LE, the community DLC build of the game, menus and
+driving, together with SplitSecond-HFR.
+
+**Not tested yet** (expected to work, but nobody has confirmed it):
+
+- **The Steam release** (`SplitSecond.exe` 1.0.0.1). It has the same controller code as the DLC build (the same
+  product table and checks, described below), and PadFix doesn't patch the game.
+- **Other controllers:** Xbox One S and Series X|S controllers over Bluetooth, any Xbox controller over USB or the
+  Xbox Wireless Adapter, and a wired Xbox 360 pad (which works without PadFix, but is also translated with it).
+- **Rumble.** The game's rumble calls are forwarded to the modern XInput, but nobody has checked that they arrive.
+- **Steam Input** turned on for the game. Steam's virtual controller isn't a Microsoft device, so PadFix leaves it
+  alone and the game would see Steam's controller instead.
+- **Linux / Steam Deck (Proton).** Wine needs to be told to use the DLLs: `WINEDLLOVERRIDES="dinput8,xinput1_3=n,b" %command%`.
+- **Windows 10.**
+
+**Known limitations:**
+
+- **One controller only.** Every Xbox controller the game sees reads the *first* connected XInput pad, so
+  two-player split-screen with two pads won't work properly yet.
+- **Microsoft controllers only** (USB vendor ID `045E`). PlayStation, 8BitDo and other pads are passed through
+  unchanged, so they behave exactly as without PadFix.
+- **The triggers share one axis**, as they do on a wired Xbox 360 pad in DirectInput, which is what the game's Xbox
+  controls are built on: holding both triggers at once cancels them out.
+
+## It doesn't work for me
+
+Please [open an issue](../../issues) and include:
+
+- Steam release or DLC build (the first lines of the SplitSecond-HFR log say which, if you use it);
+- the controller model and how it's connected (Bluetooth, USB cable, Xbox Wireless Adapter);
+- Windows version, and whether Steam Input is on for the game;
+- `padfix.log` from the game folder, with `Verbose=1`.
+
+Reports that it *does* work on an untested setup are just as useful: they let this list shrink.
 
 ## Install
 
